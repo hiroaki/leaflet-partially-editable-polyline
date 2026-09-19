@@ -48,9 +48,23 @@
     <strong>Leaflet Partially Editable Polyline (For Leaflet v2)</strong>
   </div>
   <div>
-    Click the polyline to start editing around that point.
+    Click the polyline to start editing around the nearest point. /
+    Drag points to move them, or drag a midpoint to insert a new point. /
+    Right-click (or long-press on touch devices) a point to delete it. /
     Click elsewhere on the map to stop editing.
   </div>
+  <hr />
+  <div>
+    Editing:
+    <label>
+      <input type="radio" name="editing-enabled" value="enabled" checked />
+      Enabled
+    </label>
+    <label>
+      <input type="radio" name="editing-enabled" value="disabled" />
+      Disabled
+    </label>
+   </div>
   <div id="status">
     Points: -
   </div>
@@ -137,11 +151,12 @@
   const status = document.querySelector("#status");
 
   let pointCount = points.length;
+  let editingEnabled = true;
   let editing = false;
 
   function updateStatus(message) {
     status.textContent =
-      `Points: ${pointCount} — ${message}`;
+      `Points: ${pointCount} — ${editingEnabled ? "enabled" : "disabled"} — ${message}`;
   }
 
   /*
@@ -182,6 +197,23 @@
 
   editor.on("editingerror", ({ error }) => {
     updateStatus(`error: ${error.message}`);
+  });
+
+  const editingEnabledInputs =
+    document.querySelectorAll('input[name="editing-enabled"]');
+
+  editingEnabledInputs.forEach((input) => {
+    input.addEventListener("change", () => {
+      if (input.value === "enabled") {
+        editor.enableEditing();
+        editingEnabled = true;
+        updateStatus(editing ? "editing" : "not editing");
+      } else {
+        editingEnabled = false;
+        editor.disableEditing();
+        updateStatus("not editing");
+      }
+    });
   });
 
   updateStatus("not editing");
