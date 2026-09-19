@@ -4,10 +4,10 @@ import { LatLng, Marker, Polyline, DivIcon } from "leaflet";
  * Error raised when an application tries to start editing while editing is
  * disabled.
  */
-export class PartiallyEditablePolylineError extends Error {
+export class EditingDisabledError extends Error {
   constructor() {
     super("Editing is disabled.");
-    this.name = "PartiallyEditablePolylineError";
+    this.name = "EditingDisabledError";
   }
 }
 
@@ -64,6 +64,30 @@ export class PartiallyEditablePolyline extends Polyline {
     this._dragHelpers = [];
   }
 
+  /**
+   * Replace this Polyline's geometry and synchronize the editor state.
+   *
+   * External geometry replacement invalidates all existing marker indices, so
+   * an active editing session is ended before the new points are recorded.
+   */
+  setLatLngs(latlngs) {
+    // Polyline's constructor may call this override before this subclass has
+    // initialized its editor state.
+    const hasEditorState = Array.isArray(this._pointRecords);
+
+    if (hasEditorState && this._editing) {
+      this.endEditing();
+    }
+
+    super.setLatLngs(latlngs);
+
+    if (hasEditorState) {
+      this._replacePointRecords(this.getLatLngs());
+    }
+
+    return this;
+  }
+
   onAdd(map) {
     super.onAdd(map);
 
@@ -104,22 +128,19 @@ export class PartiallyEditablePolyline extends Polyline {
 
   /**
    * Start an editing session around the point nearest to `latlng`.
-   *
-   * Passing an index is also supported for callers that already know which
-   * point should be edited. The argument may therefore be either a Leaflet
-   * LatLng-like value or a non-negative point index.
    */
-  startEditing(target) {
+  startEditing(latlng) {
     this._assertEditingEnabled();
+
+    if (!(latlng instanceof LatLng)) {
+      throw new TypeError("startEditing() requires a Leaflet LatLng.");
+    }
 
     if (!this._map || this._pointRecords.length === 0) {
       return this;
     }
 
-    const index =
-      typeof target === "number"
-        ? this._normalizePointIndex(target)
-        : this._findNearestPointIndex(target);
+    const index = this._findNearestPointIndex(latlng);
 
     if (index < 0) {
       return this;
@@ -170,23 +191,21 @@ export class PartiallyEditablePolyline extends Polyline {
       return;
     }
 
-    const error = new PartiallyEditablePolylineError();
+    const error = new EditingDisabledError();
     this.fire("editingerror", { error });
     throw error;
   }
 
   _initializePointRecords() {
-    const latlngs = this.getLatLngs();
+    this._replacePointRecords(this.getLatLngs());
+  }
 
+  _replacePointRecords(latlngs) {
     this._pointRecords = latlngs.map((latlng) => ({
       latlng: this._toLatLng(latlng),
       marker: null,
       newPointMarker: null,
     }));
-
-    // Keep Polyline's geometry independent from marker state. The records are
-    // the editor's temporary editing state; application data remains external.
-    this.setLatLngs(this._pointRecords.map((record) => record.latlng));
   }
 
   _installHandlers() {
@@ -218,18 +237,6 @@ export class PartiallyEditablePolyline extends Polyline {
     }
 
     return nearestIndex;
-  }
-
-  _normalizePointIndex(index) {
-    if (!Number.isInteger(index)) {
-      return -1;
-    }
-
-    if (index < 0 || index >= this._pointRecords.length) {
-      return -1;
-    }
-
-    return index;
   }
 
   _rebuildEditableMarkers() {
@@ -382,8 +389,8 @@ export class PartiallyEditablePolyline extends Polyline {
 
     this.fire("pointchange", {
       index,
-      latlng,
-      previousLatLng,
+      latlng: this._cloneLatLng(latlng),
+      previousLatLng: this._cloneLatLng(previousLatLng),
     });
   }
 
@@ -404,7 +411,7 @@ export class PartiallyEditablePolyline extends Polyline {
 
     this.fire("pointdelete", {
       index,
-      latlng: deletedLatLng,
+      latlng: this._cloneLatLng(deletedLatLng),
     });
 
     if (this._pointRecords.length === 0) {
@@ -496,7 +503,7 @@ export class PartiallyEditablePolyline extends Polyline {
 
     this.fire("pointinsert", {
       index,
-      latlng,
+      latlng: this._cloneLatLng(latlng),
     });
 
     this._editableStart = Math.max(
@@ -571,7 +578,9 @@ export class PartiallyEditablePolyline extends Polyline {
   }
 
   _commitGeometry() {
-    this.setLatLngs(this._pointRecords.map((record) => record.latlng));
+    // Do not use this.setLatLngs(): it is the public synchronization API and
+    // would end the active session and rebuild point records.
+    super.setLatLngs(this._pointRecords.map((record) => record.latlng));
   }
 
   _midpoint(a, b) {
@@ -579,6 +588,10 @@ export class PartiallyEditablePolyline extends Polyline {
   }
 
   _toLatLng(value) {
-    return value instanceof LatLng ? value : new LatLng(value.lat, value.lng);
+    return this._cloneLatLng(value);
+  }
+
+  _cloneLatLng(latlng) {
+    return new LatLng(latlng.lat, latlng.lng, latlng.alt);
   }
 }
