@@ -93,12 +93,10 @@ export class PartiallyEditablePolyline extends Polyline {
 
     this._map = map;
     this._initializePointRecords();
-    this._installHandlers();
   }
 
   onRemove(map) {
     this.endEditing();
-    this._removeHandlers();
     this._clearPointMarkers();
     this._map = null;
 
@@ -206,21 +204,6 @@ export class PartiallyEditablePolyline extends Polyline {
       marker: null,
       newPointMarker: null,
     }));
-  }
-
-  _installHandlers() {
-    this._onPolylineClick = (event) => {
-      this.startEditing(event.latlng);
-    };
-
-    this.on("click", this._onPolylineClick, this);
-  }
-
-  _removeHandlers() {
-    if (this._onPolylineClick) {
-      this.off("click", this._onPolylineClick, this);
-      this._onPolylineClick = null;
-    }
   }
 
   _findNearestPointIndex(latlng) {
