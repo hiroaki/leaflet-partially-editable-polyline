@@ -4,7 +4,7 @@ A Leaflet v2 plugin for editing only a local portion of a large polyline.
 
 [Live Demo](https://hiroaki.github.io/leaflet-partially-editable-polyline/examples/demo.html)
 
-`PartiallyEditablePolyline` extends Leaflet's `Polyline` and provides a lightweight editing interface that creates editor markers only around the currently selected vertex. This makes it possible to edit a small portion of a large polyline without creating markers for every vertex.
+`PartiallyEditablePolyline` extends Leaflet's `Polyline` and provides a lightweight editing interface that creates editor markers only around the currently selected point. This makes it possible to edit a small portion of a large polyline without creating markers for every point.
 
 > **Status: Early development**
 >
@@ -17,33 +17,33 @@ A Leaflet v2 plugin for editing only a local portion of a large polyline.
 
 This library currently targets Leaflet v2 and is not intended to support older Leaflet versions.
 
+The source imports Leaflet with the bare module specifier `"leaflet"`, so the application needs an import map or a bundler that resolves it. The application and the library must use the same Leaflet module instance; for example, a `LatLng` passed to `startEditing()` must be an instance of that module's `LatLng` class.
+
 ## Features
 
 - Edit only a local portion of a large polyline
-- Existing vertices can be dragged to new positions
-- Midpoint markers can be dragged to insert new vertices
-- Existing vertices can be deleted using `contextmenu`
-- Only vertices within the current editing range receive editor markers
+- Existing points can be dragged to new positions
+- Midpoint markers can be dragged to insert new points
+- Existing points can be deleted using `contextmenu`
+- Only points within the current editing range receive editor markers
 - Editing markers are rebuilt when the editing target changes
-- External `setLatLngs()` calls remain supported as part of the normal Leaflet `Polyline` API
+- External `setLatLngs()` calls are supported and rebuild the editing state
 - Editing operations are reported through dedicated events
-- The library does not manage application-specific GPX or geospatial metadata
+- The library does not manage application-specific geospatial metadata
 
-## Current Status
+## Scope
 
 This project is intentionally kept small and focused.
 
-The library currently provides the editing interaction and geometry management required by the application that motivated it. It does not attempt to be a complete GPX editor.
+The library currently provides the editing interaction and geometry management required by the application that motivated it.
 
 In particular, the following are outside the responsibility of this library:
 
-- GPX parsing or serialization
-- Track/segment/route structure
+- Application-specific data structure or synchronization
 - Elevation calculation or interpolation
 - Timestamp management
 - Persistence
 - Undo/redo
-- Application-specific data synchronization
 
 The application using the library remains the source of truth for such data.
 
@@ -73,13 +73,13 @@ const editor = new PartiallyEditablePolyline(latlngs, {
 editor.addTo(map);
 ```
 
-The polyline itself remains a normal Leaflet layer. Editing can be started explicitly:
+The polyline itself remains a Leaflet layer. The library does not start editing by itself; the application decides when editing starts. Editing can be started explicitly, once the polyline has been added to a map:
 
 ```js
 editor.startEditing(latlng);
 ```
 
-or by responding to a polyline click:
+or by responding to a polyline click (the library does not register a click handler on its own):
 
 ```js
 editor.on("click", (event) => {
@@ -99,9 +99,9 @@ map.on("click", () => {
 
 The library is designed for large polylines.
 
-When editing starts, the nearest vertex to the supplied `LatLng` is selected. Only a local range of vertices around that vertex receives editing markers.
+When editing starts, the nearest point to the supplied `LatLng` is selected. Only a local range of points around that point receives editing markers.
 
-The default range is 100 vertices before and after the selected vertex.
+The default range is 100 points before and after the selected point.
 
 For example, with:
 
@@ -111,17 +111,21 @@ For example, with:
 }
 ```
 
-the editor may display markers for up to 201 vertices around the selected vertex.
+the editor may display markers for up to 201 points around the selected point.
 
-The range is expressed in terms of the flat polyline vertex array. It does not represent a geographic distance.
+The range is expressed in terms of the flat polyline point array. It does not represent a geographic distance.
 
-The editable range is an implementation detail of the editing interaction; the application continues to own the complete geometry.
+After a point is inserted or deleted, the range is recalculated around the inserted point or, after a deletion, around the point that took the deleted point's position (the last point if the last one was deleted). Moving a point does not change the range.
+
+The range only determines which points receive editor markers; the application continues to own the complete geometry.
 
 ## Options
 
 ### `editablePointRadius`
 
-Number of vertices to include on either side of the selected vertex.
+Number of points to include on either side of the selected point.
+
+It must be a non-negative integer. Other values are not validated and may cause errors or an editing session without markers. With `0`, only the selected point receives a marker and no midpoint markers are shown.
 
 Default:
 
@@ -139,7 +143,7 @@ const editor = new PartiallyEditablePolyline(latlngs, {
 
 ### `pointIcon`
 
-Leaflet icon used for existing editable vertices.
+Leaflet icon used for existing editable points.
 
 ### `newPointIcon`
 
@@ -151,13 +155,13 @@ The default icons are provided by the library.
 
 ### `startEditing(latlng)`
 
-Starts an editing session around the vertex nearest to the supplied Leaflet `LatLng`.
+Starts an editing session around the point nearest to the supplied Leaflet `LatLng`.
 
 ```js
 editor.startEditing(latlng);
 ```
 
-The argument must be a Leaflet `LatLng`.
+The argument must be a Leaflet `LatLng` (an instance of the same Leaflet module's `LatLng` class). Anything else throws a `TypeError`; `editingerror` is not fired in this case.
 
 The method does not accept a point index or a Leaflet event object. If the caller has a Leaflet event, pass its `latlng` property explicitly:
 
@@ -166,6 +170,12 @@ editor.startEditing(event.latlng);
 ```
 
 If editing has been disabled with `disableEditing()`, `startEditing()` throws `EditingDisabledError` and fires the `editingerror` event.
+
+If the polyline has not been added to a map, or has no points, the method does nothing and fires no event.
+
+If an editing session is already active, it is ended first (`editingend` is fired) and then the new session starts (`editingstart` is fired).
+
+`EditingDisabledError` is exported from the same module as `PartiallyEditablePolyline`.
 
 ### `endEditing()`
 
@@ -199,17 +209,25 @@ editor.disableEditing();
 
 ### `setLatLngs(latlngs)`
 
-`PartiallyEditablePolyline` retains Leaflet's normal `Polyline#setLatLngs()` API.
+Replaces the whole geometry. This is the only supported way to change the geometry from outside the library: when the application's own data changes, pass the new coordinates to this method.
+
+`PartiallyEditablePolyline` retains Leaflet's normal `Polyline#setLatLngs()` call signature.
 
 When called externally:
 
 1. An active editing session is ended.
-2. The Polyline geometry is replaced.
+2. The coordinates are copied and normalized to latitude and longitude (see [Elevation and `LatLng.alt`](#elevation-and-latlngalt)), and the Polyline geometry is replaced with the copy.
 3. The library's internal editing state is rebuilt from the new geometry.
 
-This means the application can continue to treat the Polyline as a normal Leaflet geometry layer.
+The same normalization is applied to the coordinates passed to the constructor.
 
-The library currently supports a flat `LatLng[]` geometry only. Nested coordinate arrays are not supported.
+The library supports a flat geometry only. Each element may be a `LatLng`, a `[lat, lng]` array, or a `{ lat, lng }` object. Nested coordinate arrays are not supported and cause an error to be thrown.
+
+### `addLatLng()`
+
+Not supported. `addLatLng()` always throws an error.
+
+The polyline held by the library is an editing copy of the application's geometry (see [Design](#design)), and changing the copy independently of the application's data is not supported. Update the application's own data and call `setLatLngs()` instead.
 
 ## Events
 
@@ -227,17 +245,19 @@ Payload:
 }
 ```
 
-`index` is the global index of the selected vertex in the complete flat polyline.
+`index` is the global index of the selected point in the complete flat polyline.
 
 ### `editingend`
 
 Fired when an active editing session ends.
 
+This happens when the session is ended by `endEditing()`, `disableEditing()` or `setLatLngs()`, when the layer is removed from the map, when `startEditing()` is called during an active session, or when the last remaining point is deleted.
+
 No additional payload is provided.
 
 ### `pointchange`
 
-Fired once when an existing vertex has been moved and the drag operation has completed.
+Fired once when an existing point has been moved and the drag operation has completed.
 
 Payload:
 
@@ -249,7 +269,7 @@ Payload:
 }
 ```
 
-`index` is the global index of the changed vertex.
+`index` is the global index of the changed point.
 
 The operation corresponds conceptually to:
 
@@ -263,7 +283,7 @@ The event is fired after the library's internal geometry has been updated.
 
 ### `pointinsert`
 
-Fired once when a midpoint marker has been dragged to insert a new vertex.
+Fired once when a midpoint marker has been dragged to insert a new point.
 
 Payload:
 
@@ -286,7 +306,7 @@ The event represents the completed insertion. The midpoint drag does not generat
 
 ### `pointdelete`
 
-Fired when an existing vertex is deleted.
+Fired when an existing point is deleted.
 
 Payload:
 
@@ -297,7 +317,7 @@ Payload:
 }
 ```
 
-`index` is the global index of the vertex immediately before deletion.
+`index` is the global index of the point immediately before deletion.
 
 The operation corresponds conceptually to:
 
@@ -305,7 +325,9 @@ The operation corresponds conceptually to:
 latlngs.splice(index, 1);
 ```
 
-`latlng` is a snapshot of the deleted vertex.
+`latlng` is a snapshot of the deleted point.
+
+There is no lower limit on the number of points. When the last remaining point is deleted, `pointdelete` is followed by `editingend`.
 
 ### `editingerror`
 
@@ -343,27 +365,25 @@ This follows the semantics of JavaScript array operations such as assignment and
 
 ## Elevation and `LatLng.alt`
 
-The library does not manage elevation.
+The library does not manage elevation. The geometry held by the library is an editing copy that contains latitude and longitude only: `alt` values passed to the constructor or to `setLatLngs()` are discarded, and `getLatLngs()` and the `latlng` / `previousLatLng` values in events never contain `alt`.
 
-If a `LatLng` contains an `alt` value, the library carries that value when creating its internal and event-side `LatLng` objects, but it does not calculate, interpolate, or otherwise manage elevation.
-
-Applications that require elevation-aware editing are responsible for updating elevation values as appropriate.
+Applications should keep elevation and other point data themselves and update it using the `index` in editing events.
 
 ## Interaction
 
-Existing vertex markers are draggable.
+Existing point markers are draggable. While a marker is being dragged, the other editor markers are hidden and dashed helper lines to the adjacent points are shown; the polyline itself is updated when the drag ends.
 
-Midpoint markers between editable vertices can be dragged to insert a new vertex.
+Midpoint markers between editable points can be dragged to insert a new point.
 
-Existing vertices can be deleted through the Leaflet `contextmenu` interaction. This supports the standard desktop right-click interaction and Leaflet's corresponding long-press behavior on touch devices.
+Existing points can be deleted through Leaflet's `contextmenu` interaction, such as the standard desktop right-click interaction. The `contextmenu` interaction on a midpoint marker does nothing.
 
-The library does not define application-level map interaction. For example, an application may use a map click to end editing.
+The library does not define application-level map interaction. For example, an application may use a polyline click to start editing and a map click to end editing.
 
 Polyline and editor marker pointer events are configured so that their interaction does not unintentionally bubble into the map's general pointer handling.
 
 ## Data Model
 
-The library operates on a flat sequence of Leaflet `LatLng` objects:
+The library operates on a single flat sequence of Leaflet `LatLng` objects:
 
 ```js
 [
@@ -374,27 +394,24 @@ The library operates on a flat sequence of Leaflet `LatLng` objects:
 ]
 ```
 
-It does not model GPX-specific structures such as:
+Each `LatLng` represents one point of the polyline and carries latitude and longitude only. The library treats this sequence as geometry and does not attach any application-specific meaning to individual points.
 
-- tracks
-- track segments
-- routes
-- waypoints
-
-If an application needs to preserve such structure, it should maintain that information separately and use the editing events to update the appropriate application data.
+Applications that need to associate additional information with points or maintain application-specific data structures should manage that information separately and use the editing events to keep it in sync with the edited geometry.
 
 ## Design
 
 `PartiallyEditablePolyline` is implemented as a subclass of Leaflet's `Polyline`.
 
+The polyline is an editing aid rather than the original data. It holds an editing copy of the geometry (latitude and longitude only), and the application remains the source of truth: editing results are reported through events, and the application applies them to its own data. When the application's data changes, it replaces the geometry with `setLatLngs()`; operations that would change the copy independently of the application's data, such as `addLatLng()`, are not supported.
+
 The library deliberately keeps the editing state small:
 
-- The complete polyline remains the underlying Leaflet geometry.
-- `_pointRecords` maintain the library's editing state.
+- The Leaflet geometry of the polyline is an editing copy of the complete geometry, not shared with the application's data.
+- The library keeps its own internal records of the points as its editing state.
 - Editor markers are created only for the current local editing range.
 - The application remains responsible for the semantic meaning and persistence of the data.
 
-This separation allows the library to provide local editing without taking ownership of GPX-specific or application-specific data structures.
+This separation allows the library to provide local editing without taking ownership of application-specific data structures.
 
 ## Limitations
 
@@ -402,23 +419,24 @@ The current implementation has several intentional limitations:
 
 - Leaflet v2 only
 - Flat `LatLng[]` geometry only
-- No GPX parsing or serialization
-- No track/segment/route semantics
-- No elevation calculation or interpolation
-- No timestamp management
-- No persistence
-- No undo/redo
+- `LatLng.alt` is discarded
+- `addLatLng()` is not supported
+- Directly modifying the array returned by `getLatLngs()`, or the `LatLng` objects in it, is not supported
 - No npm package distribution yet
 - No build system yet
 - No compatibility layer for older Leaflet versions
 
 The project is still under development, so the public API may evolve.
 
-## Development Status
+## Acknowledgements
 
-The repository is currently intended primarily for experimentation, review, and further development.
+This project was inspired by and developed with reference to
+[Leaflet.js Editable Polylines plugin](https://github.com/tkrajina/leaflet-editable-polyline)
+by tkrajina.
 
-Package metadata, build tooling, automated tests, and distribution mechanisms are still TODO.
+If you are using Leaflet v1, consider using
+[Leaflet.js Editable Polylines plugin](https://github.com/tkrajina/leaflet-editable-polyline)
+instead. This project is specifically designed for Leaflet v2.
 
 ## License
 
