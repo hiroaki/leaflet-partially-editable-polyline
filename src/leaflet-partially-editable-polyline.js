@@ -97,16 +97,12 @@ export class PartiallyEditablePolyline extends Polyline {
 
   onAdd(map) {
     super.onAdd(map);
-
-    this._map = map;
     this._initializePointRecords();
   }
 
   onRemove(map) {
     this.endEditing();
     this._clearPointMarkers();
-    this._map = null;
-
     super.onRemove(map);
   }
 
