@@ -1,0 +1,13 @@
+{
+  "name": "leaflet-partially-editable-polyline",
+  "private": true,
+  "type": "module",
+  "description": "Development tooling only: the library itself is used directly from src/.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.0",
+    "leaflet": "2.0.0-alpha.1"
+  }
+}
