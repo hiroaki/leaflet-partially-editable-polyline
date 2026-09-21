@@ -2,7 +2,7 @@
 
 A Leaflet v2 plugin for editing only a local portion of a large polyline.
 
-[Live Demo](https://hiroaki.github.io/leaflet-partially-editable-polyline/examples/demo.html)
+[Live Demo](https://hiroaki.github.io/leaflet-partially-editable-polyline/index.html)
 
 `PartiallyEditablePolyline` extends Leaflet's `Polyline` and provides a lightweight editing interface that creates editor markers only around the currently selected point. This makes it possible to edit a small portion of a large polyline without creating markers for every point.
 
