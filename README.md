@@ -101,7 +101,7 @@ The library is designed for large polylines.
 
 When editing starts, the nearest point to the supplied `LatLng` is selected. Only a local range of points around that point receives editing markers.
 
-The default range is 100 points before and after the selected point.
+The default range is 100 points before and after the selected point. It can be set with the `editablePointRadius` option, and overridden for a single editing session with `startEditing()`.
 
 For example, with:
 
@@ -115,7 +115,7 @@ the editor may display markers for up to 201 points around the selected point.
 
 The range is expressed in terms of the flat polyline point array. It does not represent a geographic distance.
 
-After a point is inserted or deleted, the range is recalculated around the inserted point or, after a deletion, around the point that took the deleted point's position (the last point if the last one was deleted). Moving a point does not change the range.
+After a point is inserted or deleted, the range is recalculated around the inserted point or, after a deletion, around the point that took the deleted point's position (the last point if the last one was deleted), using the radius of the current editing session. Moving a point does not change the range.
 
 The range only determines which points receive editor markers; the application continues to own the complete geometry.
 
@@ -125,7 +125,9 @@ The range only determines which points receive editor markers; the application c
 
 Number of points to include on either side of the selected point.
 
-It must be a non-negative integer. Other values are not validated and may cause errors or an editing session without markers. With `0`, only the selected point receives a marker and no midpoint markers are shown.
+It must be a non-negative integer, or `Infinity` to include all points. Any other value makes `startEditing()` throw a `RangeError` (`editingerror` is not fired). With `0`, only the selected point receives a marker and no midpoint markers are shown.
+
+This is the default for every editing session. It can be overridden for a single session by passing the same option to `startEditing()`.
 
 Default:
 
@@ -153,7 +155,7 @@ The default icons are provided by the library.
 
 ## API
 
-### `startEditing(latlng)`
+### `startEditing(latlng, options)`
 
 Starts an editing session around the point nearest to the supplied Leaflet `LatLng`.
 
@@ -168,6 +170,14 @@ The method does not accept a point index or a Leaflet event object. If the calle
 ```js
 editor.startEditing(event.latlng);
 ```
+
+The second argument is optional. It is an options object that can override the editable range for this editing session:
+
+```js
+editor.startEditing(latlng, { editablePointRadius: 20 });
+```
+
+`editablePointRadius` replaces the value given to the constructor for this editing session only, including the ranges recalculated after an insertion or a deletion. The next session uses the constructor's value again unless it is overridden as well. An invalid value throws a `RangeError`; `editingerror` is not fired in this case.
 
 If editing has been disabled with `disableEditing()`, `startEditing()` throws `EditingDisabledError` and fires the `editingerror` event.
 

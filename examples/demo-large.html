@@ -64,7 +64,21 @@
       <input type="radio" name="editing-enabled" value="disabled" />
       Disabled
     </label>
-   </div>
+  </div>
+  <div>
+    <label>
+      Editable range:
+      <select id="editable-radius">
+        <option value="5">5</option>
+        <option value="20">20</option>
+        <option value="100" selected>100</option>
+        <option value="500">500</option>
+        <option value="2000">2000</option>
+        <option value="all">all (slow)</option>
+      </select>
+      points before and after the clicked point (applies from the next editing session)
+    </label>
+  </div>
   <div id="status">
     Points: -
   </div>
@@ -127,10 +141,10 @@
   /*
     * The editor is a Polyline subclass.
     *
-    * The editable range is the clicked point ±100 points
-    * (editablePointRadius: 100).
-    *
-    * become editable.
+    * editablePointRadius in the constructor is the default editable range:
+    * the clicked point ±100 points. It can be overridden for each editing
+    * session with startEditing(latlng, { editablePointRadius }), which is
+    * what the selector above does.
     */
   const editor = new PartiallyEditablePolyline(points, {
     color: "#3388ff",
@@ -219,7 +233,15 @@
   updateStatus("not editing");
 
   editor.on("click", (event) => {
-    editor.startEditing(event.latlng);
+    const radiusSelect = document.querySelector("#editable-radius");
+
+    editor.on("click", (event) => {
+      const value = radiusSelect.value;
+
+      editor.startEditing(event.latlng, {
+        editablePointRadius: value === "all" ? Infinity : Number(value),
+      });
+    });
   });
 </script>
 </body>
