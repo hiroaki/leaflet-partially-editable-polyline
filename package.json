@@ -1,13 +1,50 @@
 {
   "name": "leaflet-partially-editable-polyline",
-  "private": true,
+  "version": "0.1.0",
+  "description": "A Leaflet v2 plugin for editing only a local portion of a large polyline.",
+  "keywords": [
+    "leaflet",
+    "leaflet-plugin",
+    "polyline",
+    "map",
+    "editing"
+  ],
+  "homepage": "https://github.com/hiroaki/leaflet-partially-editable-polyline",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hiroaki/leaflet-partially-editable-polyline.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hiroaki/leaflet-partially-editable-polyline/issues"
+  },
+  "license": "0BSD",
   "type": "module",
-  "description": "Development tooling only: the library itself is used directly from src/.",
-  "scripts": {
-    "test": "node --test test/*.test.mjs"
+  "main": "./src/leaflet-partially-editable-polyline.js",
+  "module": "./src/leaflet-partially-editable-polyline.js",
+  "exports": {
+    ".": "./src/leaflet-partially-editable-polyline.js",
+    "./css": "./src/leaflet-partially-editable-polyline.css",
+    "./src/*": "./src/*"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "leaflet": ">=2.0.0-alpha.1 <3.0.0"
   },
   "devDependencies": {
     "jsdom": "^30.1.0",
     "leaflet": "2.0.0-alpha.1"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
   }
 }
