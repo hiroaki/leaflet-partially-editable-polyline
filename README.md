@@ -471,6 +471,7 @@ The current implementation has several intentional limitations:
 - Directly modifying the array returned by `getLatLngs()`, or the `LatLng` objects in it, is not supported
 - No build system yet
 - No compatibility layer for older Leaflet versions
+- Editing (moving, inserting, and deleting points) is mouse- and touch-only; there is no keyboard-only way to perform these operations
 
 The project is still under development, so the public API may evolve.
 
