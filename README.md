@@ -49,19 +49,56 @@ The application using the library remains the source of truth for such data.
 
 ## Usage
 
-The library is currently used directly from its source files. Build and package distribution are not set up yet.
+The library has no build step: whether installed from npm or used directly from its source files, the same source under `src/` is what runs.
 
-Include the stylesheet:
+### From npm
 
-```html
-<link rel="stylesheet" href="./src/leaflet-partially-editable-polyline.css" />
+```sh
+npm install leaflet-partially-editable-polyline leaflet
 ```
 
-Then import the class from the source module:
+```js
+import { PartiallyEditablePolyline } from "leaflet-partially-editable-polyline";
+```
+
+### From the source files
 
 ```js
 import { PartiallyEditablePolyline } from "./src/leaflet-partially-editable-polyline.js";
 ```
+
+### Styling the editor markers
+
+The editor markers are styled with plain CSS, using these class names:
+
+```css
+.leaflet-partially-editable-polyline-point {
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 2px solid #3388ff;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.leaflet-partially-editable-polyline-new-point {
+  width: 8px;
+  height: 8px;
+  background: #3388ff;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-sizing: border-box;
+  opacity: 0.5;
+}
+```
+
+Add these rules (or your own version of them) to your application's stylesheet. These class names are part of the library's public API and only change with a breaking change.
+
+The library also ships this stylesheet as `leaflet-partially-editable-polyline.css`, next to the source module (`src/leaflet-partially-editable-polyline.css`, or `node_modules/leaflet-partially-editable-polyline/src/leaflet-partially-editable-polyline.css` when installed from npm). It can be linked directly, or copied and edited to taste.
+
+Without either of the above, editing still works, but the markers have no visible style.
+
+### Creating the polyline
 
 Create a polyline in the same way as a normal Leaflet `Polyline`:
 
@@ -95,13 +132,21 @@ map.on("click", () => {
 });
 ```
 
-## Editing Range
+## API
 
-The library is designed for large polylines.
+### `new PartiallyEditablePolyline(latlngs, options)`
 
-When editing starts, the nearest point to the supplied `LatLng` is selected. Only a local range of points around that point receives editing markers.
+Creates a polyline in the same way as a normal Leaflet `Polyline`.
 
-The default range is 100 points before and after the selected point. It can be set with the `editablePointRadius` option, and overridden for a single editing session with `startEditing()`.
+`latlngs` is the initial geometry; see [`setLatLngs(latlngs)`](#setlatlngslatlngs) for the accepted formats and the normalization applied to it.
+
+`options` is passed through to `Polyline`, together with the following options.
+
+#### `editablePointRadius`
+
+The library is designed for large polylines. When editing starts, the nearest point to the supplied `LatLng` is selected, and only a local range of points around that point receives editing markers. `editablePointRadius` is the number of points to include on either side of the selected point.
+
+The default range is 100 points before and after the selected point. It can be overridden for a single editing session with `startEditing()` (see [`startEditing(latlng, options)`](#starteditinglatlng-options)).
 
 For example, with:
 
@@ -118,12 +163,6 @@ The range is expressed in terms of the flat polyline point array. It does not re
 After a point is inserted or deleted, the range is recalculated around the inserted point or, after a deletion, around the point that took the deleted point's position (the last point if the last one was deleted), using the radius of the current editing session. Moving a point does not change the range.
 
 The range only determines which points receive editor markers; the application continues to own the complete geometry.
-
-## Options
-
-### `editablePointRadius`
-
-Number of points to include on either side of the selected point.
 
 It must be a non-negative integer, or `Infinity` to include all points. Any other value makes `startEditing()` throw a `RangeError` (`editingerror` is not fired). With `0`, only the selected point receives a marker and no midpoint markers are shown.
 
@@ -143,17 +182,15 @@ const editor = new PartiallyEditablePolyline(latlngs, {
 });
 ```
 
-### `pointIcon`
+#### `pointIcon`
 
 Leaflet icon used for existing editable points.
 
-### `newPointIcon`
+#### `newPointIcon`
 
 Leaflet icon used for midpoint markers.
 
 The default icons are provided by the library.
-
-## API
 
 ### `startEditing(latlng, options)`
 
@@ -432,7 +469,6 @@ The current implementation has several intentional limitations:
 - `LatLng.alt` is discarded
 - `addLatLng()` is not supported
 - Directly modifying the array returned by `getLatLngs()`, or the `LatLng` objects in it, is not supported
-- No npm package distribution yet
 - No build system yet
 - No compatibility layer for older Leaflet versions
 
