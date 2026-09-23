@@ -15,12 +15,12 @@ export class EditingDisabledError extends Error {
  * A small Leaflet v2 polyline editor.
  *
  * Editing is deliberately limited to the two-dimensional LatLng geometry.
- * The consumer remains responsible for application data such as elevation,
- * timestamps, GPX structure, and persistence.
+ * The consumer remains responsible for application-specific data and
+ * persistence.
  *
- * Only a bounded neighborhood is represented by Leaflet markers, which keeps large
- * polylines responsive. During a drag, only short helper lines are updated;
- * the complete polyline is committed when the drag ends.
+ * Only a bounded neighborhood is represented by Leaflet markers, which keeps
+ * large polylines responsive. During a drag, only short helper lines are
+ * updated; the complete polyline is committed when the drag ends.
  */
 export class PartiallyEditablePolyline extends Polyline {
   static defaultPointIcon = new DivIcon({
