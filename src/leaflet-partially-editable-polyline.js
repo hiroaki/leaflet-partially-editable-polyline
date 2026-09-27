@@ -265,6 +265,7 @@ export class PartiallyEditablePolyline extends Polyline {
 
     record.marker = marker;
     marker._editablePointIndex = index;
+    marker.on("click", this._handleMarkerClick, this);
     marker.on("dragstart", this._handlePointDragStart, this);
     marker.on("drag", this._handlePointDrag, this);
     marker.on("dragend", this._handlePointDragEnd, this);
@@ -295,6 +296,7 @@ export class PartiallyEditablePolyline extends Polyline {
 
     marker._editablePreviousIndex = previousIndex;
     marker._editableNextIndex = nextIndex;
+    marker.on("click", this._handleMarkerClick, this);
     marker.on("dragstart", this._handleNewPointDragStart, this);
     marker.on("drag", this._handleNewPointDrag, this);
     marker.on("dragend", this._handleNewPointDragEnd, this);
@@ -331,6 +333,10 @@ export class PartiallyEditablePolyline extends Polyline {
     this._pointMarkers = [];
     this._newPointMarkers = [];
   }
+
+  // Leaflet v2 selects a layer as a pointer-event target only when it has a
+  // listener for that event. This intentionally has no editing side effects.
+  _handleMarkerClick() {}
 
   _handlePointDragStart(event) {
     if (!this._editingEnabled || !this._editing) {

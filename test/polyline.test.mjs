@@ -253,6 +253,29 @@ describe("PartiallyEditablePolyline", () => {
   });
 
   describe("editing operations", () => {
+    it("does not treat clicks on editor markers as map clicks", () => {
+      const editor = createEditor();
+      const events = recordEvents(editor);
+      let mapClicks = 0;
+
+      map.on("click", () => {
+        mapClicks += 1;
+      });
+
+      editor.startEditing(at(10));
+
+      for (const marker of [pointMarker(editor, 10), midpointMarker(editor, 10)]) {
+        marker.getElement().dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true }),
+        );
+      }
+
+      assert.equal(mapClicks, 0);
+      assert.deepEqual(eventTypes(events), ["editingstart"]);
+      assert.equal(editor._editing, true);
+      assert.equal(editor.getLatLngs().length, 30);
+    });
+
     it("moving a point fires pointchange after the geometry is updated", () => {
       const editor = createEditor();
       const events = recordEvents(editor);
