@@ -252,6 +252,131 @@ describe("PartiallyEditablePolyline", () => {
     });
   });
 
+  describe("getEditablePointRange()", () => {
+    it("returns null before and after editing", () => {
+      const editor = createEditor();
+
+      assert.equal(editor.getEditablePointRange(), null);
+
+      editor.startEditing(at(10));
+      editor.endEditing();
+
+      assert.equal(editor.getEditablePointRange(), null);
+    });
+
+    it("returns the inclusive range selected for editing", () => {
+      const editor = createEditor();
+
+      editor.startEditing(at(10));
+
+      assert.deepEqual(editor.getEditablePointRange(), {
+        startIndex: 5,
+        endIndex: 15,
+      });
+    });
+
+    it("truncates the range at the beginning and end", () => {
+      const editor = createEditor();
+
+      editor.startEditing(at(0));
+      assert.deepEqual(editor.getEditablePointRange(), {
+        startIndex: 0,
+        endIndex: 5,
+      });
+
+      editor.startEditing(at(29));
+      assert.deepEqual(editor.getEditablePointRange(), {
+        startIndex: 24,
+        endIndex: 29,
+      });
+    });
+
+    it("supports zero, oversized, and infinite radii", () => {
+      const editor = createEditor(4);
+
+      editor.startEditing(at(2), { editablePointRadius: 0 });
+      assert.deepEqual(editor.getEditablePointRange(), {
+        startIndex: 2,
+        endIndex: 2,
+      });
+
+      editor.startEditing(at(2), { editablePointRadius: 100 });
+      assert.deepEqual(editor.getEditablePointRange(), {
+        startIndex: 0,
+        endIndex: 3,
+      });
+
+      editor.startEditing(at(2), { editablePointRadius: Infinity });
+      assert.deepEqual(editor.getEditablePointRange(), {
+        startIndex: 0,
+        endIndex: 3,
+      });
+    });
+
+    it("returns a fresh value that cannot mutate editor state", () => {
+      const editor = createEditor();
+
+      editor.startEditing(at(10));
+      const returnedRange = editor.getEditablePointRange();
+      returnedRange.startIndex = 0;
+      returnedRange.endIndex = 29;
+
+      assert.deepEqual(editor.getEditablePointRange(), {
+        startIndex: 5,
+        endIndex: 15,
+      });
+    });
+
+    it("is current in editingstart, pointinsert, and pointdelete handlers", () => {
+      const editor = createEditor();
+      const ranges = {};
+
+      for (const type of ["editingstart", "pointinsert", "pointdelete"]) {
+        editor.on(type, () => {
+          ranges[type] = editor.getEditablePointRange();
+        });
+      }
+
+      editor.startEditing(at(10));
+      drag(midpointMarker(editor, 10), new LatLng(35.7, 139.8));
+      contextmenu(pointMarker(editor, 16));
+
+      assert.deepEqual(ranges, {
+        editingstart: { startIndex: 5, endIndex: 15 },
+        pointinsert: { startIndex: 6, endIndex: 16 },
+        pointdelete: { startIndex: 11, endIndex: 21 },
+      });
+    });
+
+    it("moves the window when deletion selects a replacement point", () => {
+      const editor = createEditor();
+
+      editor.startEditing(at(29));
+      contextmenu(pointMarker(editor, 29));
+
+      assert.deepEqual(editor.getEditablePointRange(), {
+        startIndex: 23,
+        endIndex: 28,
+      });
+      assert.deepEqual(markerIndices(editor), range(23, 28));
+    });
+
+    it("returns null in pointdelete when the final point was removed", () => {
+      const editor = createEditor(1);
+      let rangeSeenInHandler;
+
+      editor.on("pointdelete", () => {
+        rangeSeenInHandler = editor.getEditablePointRange();
+      });
+
+      editor.startEditing(at(0));
+      contextmenu(pointMarker(editor, 0));
+
+      assert.equal(rangeSeenInHandler, null);
+      assert.equal(editor.getEditablePointRange(), null);
+    });
+  });
+
   describe("editing operations", () => {
     it("moving a point fires pointchange after the geometry is updated", () => {
       const editor = createEditor();

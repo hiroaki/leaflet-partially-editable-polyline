@@ -243,6 +243,21 @@ If no editing session is active, this method does nothing and does not fire `edi
 editor.endEditing();
 ```
 
+### `getEditablePointRange()`
+
+Returns the inclusive point-index range for the existing points that are
+currently editable:
+
+```js
+const range = editor.getEditablePointRange();
+// { startIndex, endIndex }, or null
+```
+
+The indices refer to the complete flat polyline. The method returns `null`
+when editing is not active or there are no editable existing points. A new
+object is returned on every call. The range may change after an insertion or
+deletion as the library rebuilds the local editing window.
+
 ### `enableEditing()`
 
 Enables editing.
@@ -303,6 +318,9 @@ Payload:
 
 `index` is the global index of the selected point in the complete flat polyline.
 
+The editable markers have already been built when this event is fired, so
+`getEditablePointRange()` returns the new session's range in the handler.
+
 ### `editingend`
 
 Fired when an active editing session ends.
@@ -358,6 +376,9 @@ latlngs.splice(index, 0, latlng);
 
 The event is fired after the insertion has been applied.
 
+The editable range and markers have also been rebuilt, so
+`getEditablePointRange()` returns the post-insertion range in the handler.
+
 The event represents the completed insertion. The midpoint drag does not generate an additional `pointchange` event.
 
 ### `pointdelete`
@@ -382,6 +403,11 @@ latlngs.splice(index, 1);
 ```
 
 `latlng` is a snapshot of the deleted point.
+
+The editable range and markers have already been rebuilt when this event is
+fired, so `getEditablePointRange()` returns the post-deletion range in the
+handler. When the last point is deleted it returns `null`, and `editingend`
+follows the `pointdelete` event.
 
 There is no lower limit on the number of points. When the last remaining point is deleted, `pointdelete` is followed by `editingend`.
 

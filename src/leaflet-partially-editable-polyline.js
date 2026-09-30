@@ -164,13 +164,32 @@ export class PartiallyEditablePolyline extends Polyline {
     this._editing = true;
     this._editableRadius = radius;
     this._updateEditableRange(index);
+    this._rebuildEditableMarkers();
 
     this.fire("editingstart", {
       index,
     });
 
-    this._rebuildEditableMarkers();
     return this;
+  }
+
+  /**
+   * Return the inclusive indices of the existing points that are currently
+   * editable, or null when there is no current editable point range.
+   */
+  getEditablePointRange() {
+    if (
+      !this._editing ||
+      this._editableStart < 0 ||
+      this._editableEnd < this._editableStart
+    ) {
+      return null;
+    }
+
+    return {
+      startIndex: this._editableStart,
+      endIndex: this._editableEnd,
+    };
   }
 
   /**
@@ -242,7 +261,12 @@ export class PartiallyEditablePolyline extends Polyline {
   _rebuildEditableMarkers() {
     this._clearPointMarkers();
 
-    if (!this._editing || !this._map) {
+    if (
+      !this._editing ||
+      !this._map ||
+      this._editableStart < 0 ||
+      this._editableEnd < this._editableStart
+    ) {
       return;
     }
 
@@ -409,6 +433,16 @@ export class PartiallyEditablePolyline extends Polyline {
 
     this._commitGeometry();
 
+    if (this._pointRecords.length === 0) {
+      this._editableStart = -1;
+      this._editableEnd = -1;
+      this._rebuildEditableMarkers();
+    } else {
+      const replacementIndex = Math.min(index, this._pointRecords.length - 1);
+      this._updateEditableRange(replacementIndex);
+      this._rebuildEditableMarkers();
+    }
+
     this.fire("pointdelete", {
       index,
       latlng: this._cloneLatLng(deletedLatLng),
@@ -418,10 +452,6 @@ export class PartiallyEditablePolyline extends Polyline {
       this.endEditing();
       return;
     }
-
-    const replacementIndex = Math.min(index, this._pointRecords.length - 1);
-    this._updateEditableRange(replacementIndex);
-    this._rebuildEditableMarkers();
   }
 
   _handleNewPointDragStart(event) {
@@ -493,14 +523,13 @@ export class PartiallyEditablePolyline extends Polyline {
     this._commitGeometry();
     this._busy = false;
     this._removeDragHelpers();
+    this._updateEditableRange(index);
+    this._rebuildEditableMarkers();
 
     this.fire("pointinsert", {
       index,
       latlng: this._cloneLatLng(latlng),
     });
-
-    this._updateEditableRange(index);
-    this._rebuildEditableMarkers();
   }
 
   _handleNewPointDelete() {
