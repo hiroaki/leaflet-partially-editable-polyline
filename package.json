@@ -1,6 +1,6 @@
 {
   "name": "leaflet-partially-editable-polyline",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A Leaflet v2 plugin for editing only a local portion of a large polyline.",
   "keywords": [
     "leaflet",
