@@ -329,6 +329,31 @@ This happens when the session is ended by `endEditing()`, `disableEditing()` or 
 
 No additional payload is provided.
 
+### `pointclick`
+
+Fired when an existing editable point marker is clicked.
+
+Payload:
+
+```js
+{
+  index,
+  latlng
+}
+```
+
+`index` is the global index of the clicked point in the complete flat polyline.
+`latlng` is a snapshot of the clicked point.
+
+Midpoint/new-point markers do not produce this event. The event itself does not
+modify the editing state.
+
+```js
+editor.on("pointclick", ({ index, latlng }) => {
+  console.log(index, latlng);
+});
+```
+
 ### `pointchange`
 
 Fired once when an existing point has been moved and the drag operation has completed.
