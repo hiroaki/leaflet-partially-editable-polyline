@@ -191,6 +191,31 @@ const editor = new PartiallyEditablePolyline(latlngs, {
 });
 ```
 
+#### `handlePane`
+
+Leaflet pane name used by both existing-point markers and midpoint insertion
+markers, including handles recreated during editing. When omitted, handles use
+Leaflet's standard `markerPane`.
+
+This option is independent of the standard `pane` option, which controls the
+polyline itself. The consumer must create the target pane before starting
+editing and manage its stacking order; the plugin does not create or manage
+panes.
+
+Example:
+
+```js
+map.createPane("editable-lines");
+map.createPane("editable-handles");
+
+const editor = new PartiallyEditablePolyline(latlngs, {
+  pane: "editable-lines",
+  handlePane: "editable-handles",
+}).addTo(map);
+
+editor.startEditing(latlng);
+```
+
 #### `pointIcon`
 
 Leaflet icon used for existing editable points.
