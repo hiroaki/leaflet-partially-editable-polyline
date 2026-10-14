@@ -3,7 +3,7 @@ import "./support/dom.mjs";
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { LatLng } from "leaflet";
+import { LatLng, Marker } from "leaflet";
 
 import {
   EditingDisabledError,
@@ -42,6 +42,122 @@ describe("PartiallyEditablePolyline", () => {
   function createEditor(count = 30, options = { editablePointRadius: 5 }) {
     return new PartiallyEditablePolyline(makePoints(count), options).addTo(map);
   }
+
+  describe("handlePane", () => {
+    function handles() {
+      const markers = [];
+      map.eachLayer((layer) => {
+        if (layer instanceof Marker) markers.push(layer);
+      });
+      return markers;
+    }
+
+    function assertHandlePane(name, pointCount = 11, midpointCount = 10) {
+      const markers = handles();
+      assert.equal(markers.length, pointCount + midpointCount);
+      for (const [className, count] of [
+        ["leaflet-partially-editable-polyline-point", pointCount],
+        ["leaflet-partially-editable-polyline-new-point", midpointCount],
+      ]) {
+        const elements = markers.map((marker) => marker.getElement())
+          .filter((element) => element.classList.contains(className));
+        assert.equal(elements.length, count);
+        for (const element of elements) {
+          assert.equal(element.parentElement, map.getPane(name));
+        }
+      }
+      assert.ok(markers.every((marker) => marker.options.pane === name));
+    }
+
+    for (const options of [{}, { handlePane: undefined }]) {
+      it(`keeps markerPane when handlePane is ${"handlePane" in options ? "undefined" : "omitted"}`, () => {
+        map.createPane("editable-lines");
+        const editor = createEditor(30, {
+          editablePointRadius: 5, pane: "editable-lines", ...options,
+        });
+        editor.startEditing(at(10));
+        assertHandlePane("markerPane");
+        assert.equal(editor.getPane(), map.getPane("editable-lines"));
+        assert.ok(map.getPane("editable-lines").contains(editor.getElement()));
+      });
+    }
+
+    it("uses the custom pane for both handle types independently of the polyline", () => {
+      map.createPane("editable-lines");
+      const pane = map.createPane("editable-handles");
+      pane.style.zIndex = "650";
+      const paneNames = Object.keys(map.getPanes());
+      const editor = createEditor(30, {
+        editablePointRadius: 5, pane: "editable-lines", handlePane: "editable-handles",
+      });
+      editor.startEditing(at(10));
+      assertHandlePane("editable-handles");
+      assert.equal(editor.getPane(), map.getPane("editable-lines"));
+      assert.ok(map.getPane("editable-lines").contains(editor.getElement()));
+      assert.deepEqual(Object.keys(map.getPanes()), paneNames);
+      assert.equal(pane.style.zIndex, "650");
+    });
+
+    it("preserves placement and interactions after moves, insertions and deletions", () => {
+      map.createPane("editable-handles");
+      const editor = createEditor(30, {
+        editablePointRadius: 5, handlePane: "editable-handles",
+      });
+      const events = recordEvents(editor);
+      editor.startEditing(at(10));
+      const originalHandles = handles();
+      pointMarker(editor, 10).getElement().dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true }),
+      );
+      drag(pointMarker(editor, 10), new LatLng(36, 140));
+      assertHandlePane("editable-handles");
+      assert.ok(originalHandles.every((marker) => !map.hasLayer(marker)));
+      assert.deepEqual(editor.getLatLngs()[10], new LatLng(36, 140));
+      drag(midpointMarker(editor, 10), new LatLng(35.7, 139.8));
+      assertHandlePane("editable-handles");
+      assert.equal(editor.getLatLngs().length, 31);
+      assert.deepEqual(editor.getLatLngs()[11], new LatLng(35.7, 139.8));
+      contextmenu(pointMarker(editor, 11));
+      assertHandlePane("editable-handles");
+      assert.equal(editor.getLatLngs().length, 30);
+      assert.deepEqual(eventTypes(events), [
+        "editingstart", "pointclick", "pointchange", "pointinsert", "pointdelete",
+      ]);
+    });
+
+    it("cleans up and retains the pane across editing and layer lifecycle changes", () => {
+      map.createPane("editable-handles");
+      const editor = createEditor(30, {
+        editablePointRadius: 5, handlePane: "editable-handles",
+      });
+      const baseline = layerCount(map);
+      const events = recordEvents(editor);
+      editor.startEditing(at(10));
+      assertHandlePane("editable-handles");
+      editor.endEditing();
+      assert.equal(handles().length, 0);
+      assert.equal(layerCount(map), baseline);
+      editor.startEditing(at(10));
+      editor.disableEditing();
+      assert.equal(handles().length, 0);
+      editor.enableEditing();
+      editor.startEditing(at(10));
+      assertHandlePane("editable-handles");
+      map.removeLayer(editor);
+      assert.equal(handles().length, 0);
+      editor.addTo(map);
+      editor.startEditing(at(10));
+      assertHandlePane("editable-handles");
+      editor.setLatLngs(makePoints(30));
+      assert.equal(handles().length, 0);
+      editor.startEditing(at(10));
+      assertHandlePane("editable-handles");
+      assert.deepEqual(eventTypes(events), [
+        "editingstart", "editingend", "editingstart", "editingend",
+        "editingstart", "editingend", "editingstart", "editingend", "editingstart",
+      ]);
+    });
+  });
 
   describe("geometry", () => {
     it("discards alt passed to the constructor", () => {
