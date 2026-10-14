@@ -396,9 +396,57 @@ describe("PartiallyEditablePolyline", () => {
       }
 
       assert.equal(mapClicks, 0);
-      assert.deepEqual(eventTypes(events), ["editingstart"]);
+      assert.deepEqual(eventTypes(events), ["editingstart", "pointclick"]);
       assert.equal(editor._editing, true);
       assert.equal(editor.getLatLngs().length, 30);
+    });
+
+    it("fires pointclick with the clicked existing point's global index and LatLng", () => {
+      const editor = createEditor();
+      const events = recordEvents(editor);
+
+      editor.startEditing(at(10));
+      pointMarker(editor, 7).fire("click");
+      pointMarker(editor, 14).fire("click");
+
+      const clicks = events.filter((event) => event.type === "pointclick");
+      assert.deepEqual(
+        clicks.map(({ index, latlng }) => ({ index, latlng })),
+        [
+          { index: 7, latlng: at(7) },
+          { index: 14, latlng: at(14) },
+        ],
+      );
+      assert.deepEqual(editor.getEditablePointRange(), {
+        startIndex: 5,
+        endIndex: 15,
+      });
+    });
+
+    it("provides pointclick with a LatLng snapshot", () => {
+      const editor = createEditor();
+      let clickedLatLng;
+
+      editor.startEditing(at(10));
+      editor.on("pointclick", ({ latlng }) => {
+        clickedLatLng = latlng;
+      });
+      pointMarker(editor, 7).fire("click");
+
+      assert.notEqual(clickedLatLng, editor._pointRecords[7].latlng);
+      clickedLatLng.lat = 0;
+      clickedLatLng.lng = 0;
+      assert.deepEqual(editor._pointRecords[7].latlng, at(7));
+    });
+
+    it("does not fire pointclick for a midpoint marker", () => {
+      const editor = createEditor();
+      const events = recordEvents(editor);
+
+      editor.startEditing(at(10));
+      midpointMarker(editor, 10).fire("click");
+
+      assert.deepEqual(eventTypes(events), ["editingstart"]);
     });
 
     it("moving a point fires pointchange after the geometry is updated", () => {
