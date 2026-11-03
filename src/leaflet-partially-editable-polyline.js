@@ -45,6 +45,7 @@ export class PartiallyEditablePolyline extends Polyline {
     super(latlngs, {
       ...options,
       bubblingPointerEvents: false,
+      bubblingMouseEvents: false,
     });
 
     super.setLatLngs(this._normalizeLatLngs(this.getLatLngs()));
