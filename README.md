@@ -12,8 +12,10 @@ A Leaflet v2 plugin for editing only a local portion of a large polyline.
 
 ## Requirements
 
-- Leaflet v2 (tested with 2.0.0-alpha.1)
-- Modern browser with ES module support
+- Leaflet v2
+- A browser meeting [Leaflet 2.0.0-beta.1's Baseline 2022 requirements](https://github.com/Leaflet/Leaflet/releases/tag/v2.0.0-beta.1) (Safari 15.4+), with ES module support
+
+The Node/jsdom test suite passes with both `2.0.0-alpha.1` and `2.0.0-beta.1`. Chromium checks with `2.0.0-beta.1` cover basic editing and keyboard interactions with SVG/Canvas and standard/custom panes. All four demos were also checked for basic editing and their main application-specific behavior. Browser interactions with alpha.1 were not retested for this update. Safari, Firefox, and physical touch devices were not verified.
 
 This library currently targets Leaflet v2 and is not intended to support older Leaflet versions.
 
@@ -82,13 +84,13 @@ With no bundler and no npm install, the browser needs to resolve the bare specif
 <script type="importmap">
   {
     "imports": {
-      "leaflet": "https://unpkg.com/leaflet@2.0.0-alpha.1/dist/leaflet.js"
+      "leaflet": "https://unpkg.com/leaflet@2.0.0-beta.1/dist/leaflet.js"
     }
   }
 </script>
 ```
 
-This is how the demos under `examples/` load both Leaflet and the library.
+This is how the demos under `examples/` load both Leaflet and the library. This setup additionally requires browser support for import maps. Load the matching Leaflet CSS from `https://unpkg.com/leaflet@2.0.0-beta.1/dist/leaflet.css`.
 
 ## Usage
 
@@ -501,6 +503,8 @@ Existing point markers are draggable. While a marker is being dragged, the other
 
 Midpoint markers between editable points can be dragged to insert a new point.
 
+With Leaflet `2.0.0-beta.1`, a focused existing-point marker can also be moved with the arrow keys, and moving a focused midpoint marker with the arrow keys inserts a point. Enter or Space clicks a focused marker; only existing-point markers emit `pointclick`. Keyboard movement and insertion are provided by Leaflet beta.1 and are not available in alpha.1.
+
 Existing points can be deleted through Leaflet's `contextmenu` interaction, such as the standard desktop right-click interaction. The `contextmenu` interaction on a midpoint marker does nothing.
 
 The library does not define application-level map interaction. For example, an application may use a polyline click to start editing and a map click to end editing.
@@ -550,7 +554,7 @@ The current implementation has several intentional limitations:
 - Directly modifying the array returned by `getLatLngs()`, or the `LatLng` objects in it, is not supported
 - No build step; the package distributes the source ESM directly
 - No compatibility layer for older Leaflet versions
-- Editing (moving, inserting, and deleting points) is mouse- and touch-only; there is no keyboard-only way to perform these operations
+- There is no dedicated keyboard action for deleting a point; deletion uses `contextmenu`. Leaflet beta.1 provides keyboard movement and insertion as described in [Interaction](#interaction), but the library does not provide a complete keyboard-only editing workflow
 
 The project is still under development, so the public API may evolve.
 

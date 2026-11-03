@@ -494,6 +494,54 @@ describe("PartiallyEditablePolyline", () => {
   });
 
   describe("editing operations", () => {
+    // jsdom exercises Leaflet's SVG DOM target routing here. Canvas hit testing
+    // and pointer-driven dragging require a real browser.
+    for (const [name, options] of [
+      ["omitted", {}],
+      ["true", { bubblingMouseEvents: true }],
+      ["false", { bubblingMouseEvents: false }],
+      ["null", { bubblingMouseEvents: null }],
+    ]) {
+      it(`does not bubble SVG DOM clicks when bubblingMouseEvents is ${name}`, () => {
+        const editor = createEditor(30, options);
+        const events = recordEvents(editor);
+        const click = new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+        });
+        let editorClicks = 0;
+        let mapClicks = 0;
+
+        editor.on("click", (event) => {
+          editorClicks += 1;
+          assert.equal(event.originalEvent, click);
+          assert.ok(event.latlng instanceof LatLng);
+          editor.startEditing(event.latlng);
+        });
+        map.on("click", () => {
+          mapClicks += 1;
+          editor.endEditing();
+        });
+
+        const path = editor.getElement();
+        assert.equal(path.tagName.toLowerCase(), "path");
+        path.dispatchEvent(click);
+
+        assert.equal(editorClicks, 1);
+        assert.equal(mapClicks, 0);
+        assert.deepEqual(eventTypes(events), ["editingstart"]);
+        assert.notEqual(editor.getEditablePointRange(), null);
+
+        // A background click must still reach the map and end editing.
+        map.getContainer().dispatchEvent(
+          new MouseEvent("click", { bubbles: true, cancelable: true }),
+        );
+        assert.equal(mapClicks, 1);
+        assert.deepEqual(eventTypes(events), ["editingstart", "editingend"]);
+        assert.equal(editor.getEditablePointRange(), null);
+      });
+    }
+
     it("does not treat clicks on editor markers as map clicks", () => {
       const editor = createEditor();
       const events = recordEvents(editor);

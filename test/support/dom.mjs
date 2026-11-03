@@ -32,6 +32,8 @@ define("navigator", window.navigator);
 
 for (const name of [
   "HTMLElement",
+  "HTMLDivElement",
+  "HTMLImageElement",
   "Element",
   "Node",
   "SVGElement",
