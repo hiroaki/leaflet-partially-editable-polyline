@@ -13,7 +13,9 @@ A Leaflet v2 plugin for editing only a local portion of a large polyline.
 ## Requirements
 
 - Leaflet v2
-- A browser meeting [Leaflet 2.0.0-beta.1's Baseline 2022 requirements](https://github.com/Leaflet/Leaflet/releases/tag/v2.0.0-beta.1) (Safari 15.4+), with ES module support
+- A modern browser supporting ES modules and the web platform features required by Leaflet v2
+
+Leaflet v2 is currently in beta. This library has been tested with Leaflet `2.0.0-alpha.1` and `2.0.0-beta.1`. Browser compatibility follows [Leaflet's requirements](https://github.com/Leaflet/Leaflet), which currently include Baseline 2022 support.
 
 The Node/jsdom test suite passes with both `2.0.0-alpha.1` and `2.0.0-beta.1`. Chromium checks with `2.0.0-beta.1` cover basic editing and keyboard interactions with SVG/Canvas and standard/custom panes. All four demos were also checked for basic editing and their main application-specific behavior. Browser interactions with alpha.1 were not retested for this update. Safari, Firefox, and physical touch devices were not verified.
 
