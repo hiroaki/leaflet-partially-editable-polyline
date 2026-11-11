@@ -3,7 +3,7 @@ import "./support/dom.mjs";
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { LatLng, Marker } from "leaflet";
+import { LatLng, Marker, Polyline } from "leaflet";
 
 import {
   EditingDisabledError,
@@ -161,28 +161,84 @@ describe("PartiallyEditablePolyline", () => {
 
   describe("geometry", () => {
     it("discards alt passed to the constructor", () => {
-      const editor = new PartiallyEditablePolyline(makePoints(3, { alt: 10 }));
+      const points = [
+        [1, 2, 10],
+        [3, 4, 10],
+      ];
+      const polyline = new Polyline(points);
+      const editor = new PartiallyEditablePolyline(points);
 
-      assert.equal(editor.getLatLngs().length, 3);
+      assert.deepEqual(
+        polyline.getLatLngs().map((latlng) => latlng.alt),
+        [10, 10],
+      );
+      assert.equal(editor.getLatLngs().length, 2);
       assert.ok(editor.getLatLngs().every((latlng) => latlng.alt === undefined));
+      assert.deepEqual(
+        editor.getLatLngs().map((latlng) => [latlng.lat, latlng.lng]),
+        [[1, 2], [3, 4]],
+      );
     });
 
     it("accepts arrays, objects and LatLngs in setLatLngs() and discards alt", () => {
       const editor = createEditor();
-
-      editor.setLatLngs([
-        [1, 2, 3],
-        { lat: 4, lng: 5, alt: 6 },
+      const polyline = new Polyline(makePoints(3));
+      const points = [
+        [1, 2, 10],
+        { lat: 4, lng: 5, alt: 20 },
         new LatLng(7, 8, 9),
-      ]);
+      ];
+
+      editor.setLatLngs(points);
+      polyline.setLatLngs(points);
 
       const latlngs = editor.getLatLngs();
 
+      assert.deepEqual(
+        polyline.getLatLngs().map((latlng) => latlng.alt),
+        [10, 20, 9],
+      );
       assert.deepEqual(
         latlngs.map((latlng) => [latlng.lat, latlng.lng]),
         [[1, 2], [4, 5], [7, 8]],
       );
       assert.ok(latlngs.every((latlng) => latlng.alt === undefined));
+    });
+
+    it("matches Leaflet validation for invalid altitudes in the constructor", () => {
+      const points = [[1, 2, "not-an-altitude"]];
+      let polylineErrorMessage;
+
+      assert.throws(
+        () => new Polyline(points),
+        (error) => {
+          polylineErrorMessage = error.message;
+          return error.message.includes("Invalid LatLng altitude");
+        },
+      );
+      assert.throws(
+        () => new PartiallyEditablePolyline(points),
+        (error) => error.message === polylineErrorMessage,
+      );
+    });
+
+    it("matches Leaflet validation for invalid altitudes in setLatLngs()", () => {
+      const invalidPoints = [[1, 2, "not-an-altitude"]];
+      const polyline = new Polyline(makePoints(30));
+      const editor = createEditor();
+      let polylineErrorMessage;
+
+      assert.throws(
+        () => polyline.setLatLngs(invalidPoints),
+        (error) => {
+          polylineErrorMessage = error.message;
+          return error.message.includes("Invalid LatLng altitude");
+        },
+      );
+      assert.throws(
+        () => editor.setLatLngs(invalidPoints),
+        (error) => error.message === polylineErrorMessage,
+      );
     });
 
     it("throws for nested coordinate arrays", () => {

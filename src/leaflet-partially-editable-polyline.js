@@ -48,7 +48,7 @@ export class PartiallyEditablePolyline extends Polyline {
       bubblingMouseEvents: false,
     });
 
-    super.setLatLngs(this._normalizeLatLngs(this.getLatLngs()));
+    super.setLatLngs(this.getLatLngs().map((latlng) => this._cloneLatLng(latlng)));
 
     this._editorOptions = {
       ...PartiallyEditablePolyline.defaultOptions,
@@ -87,11 +87,16 @@ export class PartiallyEditablePolyline extends Polyline {
    * an active editing session is ended before the new points are recorded.
    */
   setLatLngs(latlngs) {
+    // Let Leaflet validate and convert the original input, including altitude.
+    // Strip altitude from the converted coordinates using the public setter,
+    // rather than mutating Leaflet's internal LatLng objects directly.
+    super.setLatLngs(latlngs);
+    super.setLatLngs(this.getLatLngs().map((latlng) => this._cloneLatLng(latlng)));
+
     if (this._editing) {
       this.endEditing();
     }
 
-    super.setLatLngs(this._normalizeLatLngs(latlngs));
     this._replacePointRecords(this.getLatLngs());
 
     return this;
@@ -623,13 +628,6 @@ export class PartiallyEditablePolyline extends Polyline {
 
   _midpoint(a, b) {
     return new LatLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
-  }
-
-  _normalizeLatLngs(latlngs) {
-    return latlngs.map((value) => {
-      const latlng = new LatLng(value); // Accept array or object format as well
-      return new LatLng(latlng.lat, latlng.lng);
-    });
   }
 
   _cloneLatLng(latlng) {
