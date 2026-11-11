@@ -242,10 +242,102 @@ describe("PartiallyEditablePolyline", () => {
     });
 
     it("throws for nested coordinate arrays", () => {
-      const nested = [[[1, 2], [3, 4]]];
+      for (const nested of [
+        [[[1, 2], [3, 4]]],
+        [[1, 2], [[3, 4], [5, 6]]],
+        [[]],
+      ]) {
+        assert.throws(
+          () => new PartiallyEditablePolyline(nested),
+          /Nested coordinate arrays are not supported/,
+        );
+      }
+    });
 
-      assert.throws(() => new PartiallyEditablePolyline(nested), Error);
-      assert.throws(() => createEditor().setLatLngs(nested), Error);
+    it("allows empty coordinate collections", () => {
+      const editor = createEditor();
+
+      assert.deepEqual(new PartiallyEditablePolyline([]).getLatLngs(), []);
+      assert.equal(editor.setLatLngs([]), editor);
+      assert.deepEqual(editor.getLatLngs(), []);
+    });
+
+    it("delegates malformed coordinate values to Leaflet", () => {
+      for (const points of [[[null, 2]], [[undefined, 2]], [[{}, 2]]]) {
+        let expectedError;
+
+        assert.throws(
+          () => new Polyline(points),
+          (error) => {
+            expectedError = error;
+            return true;
+          },
+        );
+        assert.throws(
+          () => new PartiallyEditablePolyline(points),
+          (error) =>
+            error.constructor === expectedError.constructor &&
+            error.message === expectedError.message,
+        );
+
+        const polyline = new Polyline(makePoints(2));
+        const editor = createEditor(2);
+        expectedError = undefined;
+
+        assert.throws(
+          () => polyline.setLatLngs(points),
+          (error) => {
+            expectedError = error;
+            return true;
+          },
+        );
+        assert.throws(
+          () => editor.setLatLngs(points),
+          (error) =>
+            error.constructor === expectedError.constructor &&
+            error.message === expectedError.message,
+        );
+      }
+    });
+
+    it("rejects nested setLatLngs() without changing an active editing session", () => {
+      const editor = createEditor();
+      const events = recordEvents(editor);
+
+      editor.startEditing(at(10));
+      const geometry = editor.getLatLngs().map(({ lat, lng }) => [lat, lng]);
+      const bounds = editor.getBounds();
+      const southWest = bounds.getSouthWest();
+      const northEast = bounds.getNorthEast();
+      const indices = markerIndices(editor);
+      const marker = pointMarker(editor, 10);
+      const midpoint = midpointMarker(editor, 10);
+      const editableRange = editor.getEditablePointRange();
+
+      for (const nested of [
+        [[[1, 2], [3, 4]]],
+        [[1, 2], [[3, 4], [5, 6]]],
+        [[]],
+      ]) {
+        assert.throws(
+          () => editor.setLatLngs(nested),
+          /Nested coordinate arrays are not supported/,
+        );
+
+        assert.deepEqual(
+          editor.getLatLngs().map(({ lat, lng }) => [lat, lng]),
+          geometry,
+        );
+        assert.deepEqual(editor.getBounds().getSouthWest(), southWest);
+        assert.deepEqual(editor.getBounds().getNorthEast(), northEast);
+        assert.deepEqual(markerIndices(editor), indices);
+        assert.equal(pointMarker(editor, 10), marker);
+        assert.ok(map.hasLayer(marker));
+        assert.equal(midpointMarker(editor, 10), midpoint);
+        assert.ok(map.hasLayer(midpoint));
+        assert.deepEqual(editor.getEditablePointRange(), editableRange);
+        assert.deepEqual(eventTypes(events), ["editingstart"]);
+      }
     });
 
     it("does not support addLatLng()", () => {
@@ -778,17 +870,46 @@ describe("PartiallyEditablePolyline", () => {
   });
 
   describe("session lifecycle", () => {
-    it("ends the session on setLatLngs() and edits the new geometry afterwards", () => {
+    it("ends the session before replacing geometry and edits the new geometry afterwards", () => {
+      const editor = createEditor();
+      const events = recordEvents(editor);
+      const originalGeometry = editor.getLatLngs().map(({ lat, lng }) => [lat, lng]);
+      const endingGeometry = [];
+      const replacement = [[1, 2], [4, 5], [7, 8]];
+
+      editor.on("editingend", () => {
+        endingGeometry.push(
+          editor.getLatLngs().map(({ lat, lng }) => [lat, lng]),
+        );
+      });
+
+      editor.startEditing(at(10));
+      editor.setLatLngs(replacement);
+
+      assert.deepEqual(eventTypes(events), ["editingstart", "editingend"]);
+      assert.deepEqual(endingGeometry, [originalGeometry]);
+      assert.deepEqual(
+        editor.getLatLngs().map(({ lat, lng }) => [lat, lng]),
+        replacement,
+      );
+      assert.equal(editor.getEditablePointRange(), null);
+      assert.deepEqual(markerIndices(editor), []);
+
+      editor.startEditing(new LatLng(4, 5));
+      assert.deepEqual(markerIndices(editor), [0, 1, 2]);
+    });
+
+    it("does not fire editingend when setLatLngs() is called while not editing", () => {
       const editor = createEditor();
       const events = recordEvents(editor);
 
-      editor.startEditing(at(10));
-      editor.setLatLngs([[1, 2], [4, 5], [7, 8]]);
+      editor.setLatLngs([[1, 2], [4, 5]]);
 
-      assert.deepEqual(eventTypes(events), ["editingstart", "editingend"]);
-
-      editor.startEditing(new LatLng(4, 5));
-      assert.equal(editor._pointMarkers.length, 3);
+      assert.deepEqual(eventTypes(events), []);
+      assert.deepEqual(
+        editor.getLatLngs().map(({ lat, lng }) => [lat, lng]),
+        [[1, 2], [4, 5]],
+      );
     });
 
     it("refuses to start while disabled, and ends a running session on disable", () => {

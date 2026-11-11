@@ -1,5 +1,18 @@
 import { LatLng, Marker, Polyline, DivIcon } from "leaflet";
 
+function assertFlatLatLngs(latlngs) {
+  if (
+    Array.isArray(latlngs) &&
+    latlngs.some(
+      (latlng) =>
+        Array.isArray(latlng) &&
+        (latlng.length === 0 || latlng.some(Array.isArray)),
+    )
+  ) {
+    throw new Error("Nested coordinate arrays are not supported.");
+  }
+}
+
 /**
  * Error raised when an application tries to start editing while editing is
  * disabled.
@@ -42,6 +55,7 @@ export class PartiallyEditablePolyline extends Polyline {
   };
 
   constructor(latlngs, options = {}) {
+    assertFlatLatLngs(latlngs);
     super(latlngs, {
       ...options,
       bubblingPointerEvents: false,
@@ -87,15 +101,17 @@ export class PartiallyEditablePolyline extends Polyline {
    * an active editing session is ended before the new points are recorded.
    */
   setLatLngs(latlngs) {
+    assertFlatLatLngs(latlngs);
+
+    if (this._editing) {
+      this.endEditing();
+    }
+
     // Let Leaflet validate and convert the original input, including altitude.
     // Strip altitude from the converted coordinates using the public setter,
     // rather than mutating Leaflet's internal LatLng objects directly.
     super.setLatLngs(latlngs);
     super.setLatLngs(this.getLatLngs().map((latlng) => this._cloneLatLng(latlng)));
-
-    if (this._editing) {
-      this.endEditing();
-    }
 
     this._replacePointRecords(this.getLatLngs());
 
