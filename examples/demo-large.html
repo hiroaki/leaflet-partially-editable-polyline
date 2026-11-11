@@ -234,13 +234,10 @@
 
   editor.on("click", (event) => {
     const radiusSelect = document.querySelector("#editable-radius");
+    const value = radiusSelect.value;
 
-    editor.on("click", (event) => {
-      const value = radiusSelect.value;
-
-      editor.startEditing(event.latlng, {
-        editablePointRadius: value === "all" ? Infinity : Number(value),
-      });
+    editor.startEditing(event.latlng, {
+      editablePointRadius: value === "all" ? Infinity : Number(value),
     });
   });
 </script>
