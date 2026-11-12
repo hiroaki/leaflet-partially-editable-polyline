@@ -1,14 +1,12 @@
 import { LatLng, Marker, Polyline, DivIcon } from "leaflet";
 
+// Avoid running initialization hooks on temporary validation instances.
+class FlatCheckPolyline extends Polyline {
+  callInitHooks() {}
+}
+
 function assertFlatLatLngs(latlngs) {
-  if (
-    Array.isArray(latlngs) &&
-    latlngs.some(
-      (latlng) =>
-        Array.isArray(latlng) &&
-        (latlng.length === 0 || latlng.some(Array.isArray)),
-    )
-  ) {
+  if (new FlatCheckPolyline(latlngs).getLatLngs().some(Array.isArray)) {
     throw new Error("Nested coordinate arrays are not supported.");
   }
 }

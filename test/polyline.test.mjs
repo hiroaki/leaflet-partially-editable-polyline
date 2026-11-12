@@ -160,6 +160,20 @@ describe("PartiallyEditablePolyline", () => {
   });
 
   describe("geometry", () => {
+    it("accepts mixed flat coordinate formats in the constructor", () => {
+      const points = [
+        [1, 2, 10],
+        { lat: 4, lng: 5, alt: 20 },
+        new LatLng(7, 8, 9),
+      ];
+      const editor = new PartiallyEditablePolyline(points);
+
+      assert.deepEqual(
+        editor.getLatLngs(),
+        [new LatLng(1, 2), new LatLng(4, 5), new LatLng(7, 8)],
+      );
+    });
+
     it("discards alt passed to the constructor", () => {
       const points = [
         [1, 2, 10],
@@ -244,7 +258,8 @@ describe("PartiallyEditablePolyline", () => {
     it("throws for nested coordinate arrays", () => {
       for (const nested of [
         [[[1, 2], [3, 4]]],
-        [[1, 2], [[3, 4], [5, 6]]],
+        [[{ lat: 1, lng: 2 }, { lat: 3, lng: 4 }]],
+        [[new LatLng(1, 2), new LatLng(3, 4)]],
         [[]],
       ]) {
         assert.throws(
@@ -263,7 +278,12 @@ describe("PartiallyEditablePolyline", () => {
     });
 
     it("delegates malformed coordinate values to Leaflet", () => {
-      for (const points of [[[null, 2]], [[undefined, 2]], [[{}, 2]]]) {
+      for (const points of [
+        [[null, 2]],
+        [[undefined, 2]],
+        [[{}, 2]],
+        [[1, 2], [[3, 4], [5, 6]]],
+      ]) {
         let expectedError;
 
         assert.throws(
@@ -300,7 +320,7 @@ describe("PartiallyEditablePolyline", () => {
       }
     });
 
-    it("rejects nested setLatLngs() without changing an active editing session", () => {
+    it("rejects invalid setLatLngs() without changing an active editing session", () => {
       const editor = createEditor();
       const events = recordEvents(editor);
 
@@ -313,16 +333,23 @@ describe("PartiallyEditablePolyline", () => {
       const marker = pointMarker(editor, 10);
       const midpoint = midpointMarker(editor, 10);
       const editableRange = editor.getEditablePointRange();
+      const records = editor._pointRecords;
+      const recordSnapshot = records.map((record) => ({
+        ...record,
+        latlng: new LatLng(record.latlng),
+      }));
+      const pointMarkers = indices.map((index) => pointMarker(editor, index));
+      const midpointMarkers = indices.slice(0, -1).map((index) => midpointMarker(editor, index));
 
-      for (const nested of [
-        [[[1, 2], [3, 4]]],
-        [[1, 2], [[3, 4], [5, 6]]],
-        [[]],
+      for (const [points, error] of [
+        [[[[1, 2], [3, 4]]], /Nested coordinate arrays are not supported/],
+        [[[{ lat: 1, lng: 2 }, { lat: 3, lng: 4 }]], /Nested coordinate arrays are not supported/],
+        [[[new LatLng(1, 2), new LatLng(3, 4)]], /Nested coordinate arrays are not supported/],
+        [[[]], /Nested coordinate arrays are not supported/],
+        [[[1, 2], [[3, 4], [5, 6]]], /Invalid LatLng/],
+        [[[1, 2, "not-an-altitude"]], /Invalid LatLng altitude/],
       ]) {
-        assert.throws(
-          () => editor.setLatLngs(nested),
-          /Nested coordinate arrays are not supported/,
-        );
+        assert.throws(() => editor.setLatLngs(points), error);
 
         assert.deepEqual(
           editor.getLatLngs().map(({ lat, lng }) => [lat, lng]),
@@ -330,7 +357,15 @@ describe("PartiallyEditablePolyline", () => {
         );
         assert.deepEqual(editor.getBounds().getSouthWest(), southWest);
         assert.deepEqual(editor.getBounds().getNorthEast(), northEast);
+        assert.equal(editor._pointRecords, records);
+        assert.deepEqual(editor._pointRecords, recordSnapshot);
         assert.deepEqual(markerIndices(editor), indices);
+        assert.deepEqual(indices.map((index) => pointMarker(editor, index)), pointMarkers);
+        assert.deepEqual(
+          indices.slice(0, -1).map((index) => midpointMarker(editor, index)),
+          midpointMarkers,
+        );
+        assert.ok([...pointMarkers, ...midpointMarkers].every((handle) => map.hasLayer(handle)));
         assert.equal(pointMarker(editor, 10), marker);
         assert.ok(map.hasLayer(marker));
         assert.equal(midpointMarker(editor, 10), midpoint);
