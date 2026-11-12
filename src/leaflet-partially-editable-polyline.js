@@ -5,10 +5,26 @@ class FlatCheckPolyline extends Polyline {
   callInitHooks() {}
 }
 
-function assertFlatLatLngs(latlngs) {
-  if (new FlatCheckPolyline(latlngs).getLatLngs().some(Array.isArray)) {
+// Two-dimensional copy: drops alt and never shares the instance.
+function cloneLatLng(latlng) {
+  return new LatLng(latlng.lat, latlng.lng);
+}
+
+// Leaflet alone decides what is a valid coordinate and what is a nested
+// structure, so this plugin does not interpret the input itself. Leaflet's
+// own errors for invalid values propagate unchanged.
+//
+// The result is not safe to keep: Leaflet reuses LatLng instances it was given
+// (so they may belong to the caller) and keeps their alt. Copy each element
+// with cloneLatLng() before using it.
+function normalizeFlatLatLngs(latlngs) {
+  const normalized = new FlatCheckPolyline(latlngs).getLatLngs();
+
+  if (normalized.some(Array.isArray)) {
     throw new Error("Nested coordinate arrays are not supported.");
   }
+
+  return normalized;
 }
 
 /**
@@ -53,14 +69,15 @@ export class PartiallyEditablePolyline extends Polyline {
   };
 
   constructor(latlngs, options = {}) {
-    assertFlatLatLngs(latlngs);
-    super(latlngs, {
+    // Arguments are evaluated before super(), where `this` is unavailable;
+    // hence the module-level helpers. Passing the copies here also means that
+    // init hooks, which run inside super(), see the final geometry rather than
+    // the caller's instances with alt.
+    super(normalizeFlatLatLngs(latlngs).map(cloneLatLng), {
       ...options,
       bubblingPointerEvents: false,
       bubblingMouseEvents: false,
     });
-
-    super.setLatLngs(this.getLatLngs().map((latlng) => this._cloneLatLng(latlng)));
 
     this._editorOptions = {
       ...PartiallyEditablePolyline.defaultOptions,
@@ -99,18 +116,21 @@ export class PartiallyEditablePolyline extends Polyline {
    * an active editing session is ended before the new points are recorded.
    */
   setLatLngs(latlngs) {
-    assertFlatLatLngs(latlngs);
+    // Validate and copy before touching the session or the geometry, so a
+    // rejected input leaves everything as it was and fires no editingend.
+    const coordinates = normalizeFlatLatLngs(latlngs).map(cloneLatLng);
 
     if (this._editing) {
       this.endEditing();
     }
 
-    // Let Leaflet validate and convert the original input, including altitude.
-    // Strip altitude from the converted coordinates using the public setter,
-    // rather than mutating Leaflet's internal LatLng objects directly.
-    super.setLatLngs(latlngs);
-    super.setLatLngs(this.getLatLngs().map((latlng) => this._cloneLatLng(latlng)));
+    // Call the public setter once: each call converts every point, updates the
+    // bounds and, on a map, redraws the whole path. Altitude is already
+    // stripped, so no Leaflet internals need to be modified afterwards.
+    super.setLatLngs(coordinates);
 
+    // The records get their own copies; they must stay independent of the
+    // objects that getLatLngs() exposes to the application.
     this._replacePointRecords(this.getLatLngs());
 
     return this;
@@ -645,6 +665,6 @@ export class PartiallyEditablePolyline extends Polyline {
   }
 
   _cloneLatLng(latlng) {
-    return new LatLng(latlng.lat, latlng.lng);
+    return cloneLatLng(latlng);
   }
 }

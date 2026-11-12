@@ -375,6 +375,80 @@ describe("PartiallyEditablePolyline", () => {
       }
     });
 
+    it("applies the geometry with a single Polyline.setLatLngs() call", (t) => {
+      // Internal regression guard, not public behavior: every call converts
+      // all points, updates the bounds and, on a map, redraws the whole path.
+      // t.mock restores the method when the test ends.
+      const setter = t.mock.method(Polyline.prototype, "setLatLngs");
+
+      new PartiallyEditablePolyline(makePoints(3));
+      assert.equal(setter.mock.callCount(), 0);
+
+      const editor = createEditor();
+      editor.startEditing(at(10));
+      setter.mock.resetCalls();
+      editor.setLatLngs(makePoints(5));
+      assert.equal(setter.mock.callCount(), 1);
+
+      setter.mock.resetCalls();
+      for (const rejected of [
+        [[[1, 2], [3, 4]]],
+        [[null, 2]],
+        [[1, 2, "not-an-altitude"]],
+      ]) {
+        assert.throws(() => editor.setLatLngs(rejected));
+      }
+      assert.equal(setter.mock.callCount(), 0);
+    });
+
+    for (const { name, make, mutate } of [
+      {
+        name: "LatLng instances",
+        make: () => [new LatLng(1, 2, 10), new LatLng(3, 4, 20)],
+        mutate: (input) => { input[0].lat = 50; },
+      },
+      {
+        name: "coordinate objects",
+        make: () => [{ lat: 1, lng: 2, alt: 10 }, { lat: 3, lng: 4, alt: 20 }],
+        mutate: (input) => { input[0].lat = 50; },
+      },
+      {
+        name: "coordinate arrays",
+        make: () => [[1, 2, 10], [3, 4, 20]],
+        mutate: (input) => { input[0][0] = 50; },
+      },
+    ]) {
+      it(`neither modifies nor shares ${name} with alt`, () => {
+        for (const create of [
+          (input) => new PartiallyEditablePolyline(input).addTo(map),
+          (input) => createEditor(2).setLatLngs(input),
+        ]) {
+          const input = make();
+          const snapshot = JSON.stringify(input);
+          const editor = create(input);
+          const geometry = editor.getLatLngs();
+
+          assert.equal(JSON.stringify(input), snapshot);
+          assert.deepEqual(
+            geometry.map(({ lat, lng }) => [lat, lng]),
+            [[1, 2], [3, 4]],
+          );
+          assert.ok(geometry.every((latlng) => latlng.alt === undefined));
+          geometry.forEach((latlng, i) => assert.notEqual(latlng, input[i]));
+
+          assert.equal(editor._pointRecords.length, 2);
+          editor._pointRecords.forEach((record, i) => {
+            assert.notEqual(record.latlng, geometry[i]);
+          });
+
+          // Later changes to the caller's data must not reach the editor.
+          mutate(input);
+          assert.equal(editor.getLatLngs()[0].lat, 1);
+          assert.equal(editor._pointRecords[0].latlng.lat, 1);
+        }
+      });
+    }
+
     it("does not support addLatLng()", () => {
       const editor = createEditor();
 
