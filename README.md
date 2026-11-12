@@ -15,7 +15,7 @@ A Leaflet v2 plugin for editing only a local portion of a large polyline.
 - Leaflet v2
 - A modern browser supporting ES modules and the web platform features required by Leaflet v2
 
-Leaflet v2 is currently in beta. The demos and tests use Leaflet `2.0.0-beta.3`. Browser compatibility follows [Leaflet's requirements](https://github.com/Leaflet/Leaflet).
+Leaflet v2 is currently in beta. This package is tested with Leaflet `2.0.0-beta.3`, which the demos also use, and declares `^2.0.0-beta.3` as its peer dependency range. Later Leaflet 2 releases are accepted by that range but have not been verified. Browser compatibility follows [Leaflet's requirements](https://github.com/Leaflet/Leaflet).
 
 This library targets Leaflet v2 and does not support older Leaflet versions.
 
@@ -53,12 +53,10 @@ The application using the library remains the source of truth for such data.
 
 ### From npm
 
-The npm package currently targets Leaflet `2.0.0-alpha.1`. For Leaflet `2.0.0-beta.3`, use the latest source from GitHub instead.
-
-Install the published version with Leaflet `2.0.0-alpha.1`:
+The `latest` tag of Leaflet on npm still points to Leaflet 1.x, so install Leaflet v2 explicitly together with the plugin:
 
 ```sh
-npm install leaflet-partially-editable-polyline leaflet@2.0.0-alpha.1
+npm install leaflet-partially-editable-polyline leaflet@2.0.0-beta.3
 ```
 
 Then import the plugin and its stylesheet:
