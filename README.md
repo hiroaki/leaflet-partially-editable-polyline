@@ -15,7 +15,7 @@ A Leaflet v2 plugin for editing only a local portion of a large polyline.
 - Leaflet v2
 - A modern browser supporting ES modules and the web platform features required by Leaflet v2
 
-Leaflet v2 is currently in beta. The demos and tests use Leaflet `2.0.0-beta.2`. Browser compatibility follows [Leaflet's requirements](https://github.com/Leaflet/Leaflet).
+Leaflet v2 is currently in beta. The demos and tests use Leaflet `2.0.0-beta.3`. Browser compatibility follows [Leaflet's requirements](https://github.com/Leaflet/Leaflet).
 
 This library targets Leaflet v2 and does not support older Leaflet versions.
 
@@ -53,7 +53,7 @@ The application using the library remains the source of truth for such data.
 
 ### From npm
 
-The npm package currently targets Leaflet `2.0.0-alpha.1`. For Leaflet `2.0.0-beta.2`, use the latest source from GitHub instead.
+The npm package currently targets Leaflet `2.0.0-alpha.1`. For Leaflet `2.0.0-beta.3`, use the latest source from GitHub instead.
 
 Install the published version with Leaflet `2.0.0-alpha.1`:
 
@@ -86,13 +86,13 @@ With no bundler and no npm install, the browser needs to resolve the bare specif
 <script type="importmap">
   {
     "imports": {
-      "leaflet": "https://unpkg.com/leaflet@2.0.0-beta.2/dist/leaflet.js"
+      "leaflet": "https://unpkg.com/leaflet@2.0.0-beta.3/dist/leaflet.js"
     }
   }
 </script>
 ```
 
-This is how the demos under `examples/` load both Leaflet and the library. This setup additionally requires browser support for import maps. Load the matching Leaflet CSS from `https://unpkg.com/leaflet@2.0.0-beta.2/dist/leaflet.css`.
+This is how the demos under `examples/` load both Leaflet and the library. This setup additionally requires browser support for import maps. Load the matching Leaflet CSS from `https://unpkg.com/leaflet@2.0.0-beta.3/dist/leaflet.css`.
 
 ## Usage
 
