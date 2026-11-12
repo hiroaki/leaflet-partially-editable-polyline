@@ -1,5 +1,32 @@
 import { LatLng, Marker, Polyline, DivIcon } from "leaflet";
 
+// Avoid running initialization hooks on temporary validation instances.
+class FlatCheckPolyline extends Polyline {
+  callInitHooks() {}
+}
+
+// Two-dimensional copy: drops alt and never shares the instance.
+function cloneLatLng(latlng) {
+  return new LatLng(latlng.lat, latlng.lng);
+}
+
+// Leaflet alone decides what is a valid coordinate and what is a nested
+// structure, so this plugin does not interpret the input itself. Leaflet's
+// own errors for invalid values propagate unchanged.
+//
+// The result is not safe to keep: Leaflet reuses LatLng instances it was given
+// (so they may belong to the caller) and keeps their alt. Copy each element
+// with cloneLatLng() before using it.
+function normalizeFlatLatLngs(latlngs) {
+  const normalized = new FlatCheckPolyline(latlngs).getLatLngs();
+
+  if (normalized.some(Array.isArray)) {
+    throw new Error("Nested coordinate arrays are not supported.");
+  }
+
+  return normalized;
+}
+
 /**
  * Error raised when an application tries to start editing while editing is
  * disabled.
@@ -42,12 +69,15 @@ export class PartiallyEditablePolyline extends Polyline {
   };
 
   constructor(latlngs, options = {}) {
-    super(latlngs, {
+    // Arguments are evaluated before super(), where `this` is unavailable;
+    // hence the module-level helpers. Passing the copies here also means that
+    // init hooks, which run inside super(), see the final geometry rather than
+    // the caller's instances with alt.
+    super(normalizeFlatLatLngs(latlngs).map(cloneLatLng), {
       ...options,
       bubblingPointerEvents: false,
+      bubblingMouseEvents: false,
     });
-
-    super.setLatLngs(this._normalizeLatLngs(this.getLatLngs()));
 
     this._editorOptions = {
       ...PartiallyEditablePolyline.defaultOptions,
@@ -86,11 +116,21 @@ export class PartiallyEditablePolyline extends Polyline {
    * an active editing session is ended before the new points are recorded.
    */
   setLatLngs(latlngs) {
+    // Validate and copy before touching the session or the geometry, so a
+    // rejected input leaves everything as it was and fires no editingend.
+    const coordinates = normalizeFlatLatLngs(latlngs).map(cloneLatLng);
+
     if (this._editing) {
       this.endEditing();
     }
 
-    super.setLatLngs(this._normalizeLatLngs(latlngs));
+    // Call the public setter once: each call converts every point, updates the
+    // bounds and, on a map, redraws the whole path. Altitude is already
+    // stripped, so no Leaflet internals need to be modified afterwards.
+    super.setLatLngs(coordinates);
+
+    // The records get their own copies; they must stay independent of the
+    // objects that getLatLngs() exposes to the application.
     this._replacePointRecords(this.getLatLngs());
 
     return this;
@@ -285,6 +325,10 @@ export class PartiallyEditablePolyline extends Polyline {
       options.icon = this._editorOptions.pointIcon;
     }
 
+    if (this._editorOptions.handlePane !== undefined) {
+      options.pane = this._editorOptions.handlePane;
+    }
+
     const marker = new Marker(record.latlng, options);
 
     record.marker = marker;
@@ -314,6 +358,10 @@ export class PartiallyEditablePolyline extends Polyline {
 
     if (this._editorOptions.newPointIcon) {
       options.icon = this._editorOptions.newPointIcon;
+    }
+
+    if (this._editorOptions.handlePane !== undefined) {
+      options.pane = this._editorOptions.handlePane;
     }
 
     const marker = new Marker(this._midpoint(previous.latlng, next.latlng), options);
@@ -358,9 +406,17 @@ export class PartiallyEditablePolyline extends Polyline {
     this._newPointMarkers = [];
   }
 
-  // Leaflet v2 selects a layer as a pointer-event target only when it has a
-  // listener for that event. This intentionally has no editing side effects.
-  _handleMarkerClick() {}
+  _handleMarkerClick(event) {
+    const index = event.target._editablePointIndex;
+    if (index == null || !this._pointRecords[index]) {
+      return;
+    }
+
+    this.fire("pointclick", {
+      index,
+      latlng: this._cloneLatLng(this._pointRecords[index].latlng),
+    });
+  }
 
   _handlePointDragStart(event) {
     if (!this._editingEnabled || !this._editing) {
@@ -608,14 +664,7 @@ export class PartiallyEditablePolyline extends Polyline {
     return new LatLng((a.lat + b.lat) / 2, (a.lng + b.lng) / 2);
   }
 
-  _normalizeLatLngs(latlngs) {
-    return latlngs.map((value) => {
-      const latlng = new LatLng(value); // Accept array or object format as well
-      return new LatLng(latlng.lat, latlng.lng);
-    });
-  }
-
   _cloneLatLng(latlng) {
-    return new LatLng(latlng.lat, latlng.lng);
+    return cloneLatLng(latlng);
   }
 }

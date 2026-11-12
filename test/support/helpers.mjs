@@ -4,6 +4,7 @@ const EVENT_TYPES = [
   "editingstart",
   "editingend",
   "editingerror",
+  "pointclick",
   "pointchange",
   "pointinsert",
   "pointdelete",

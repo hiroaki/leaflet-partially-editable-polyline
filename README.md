@@ -12,10 +12,12 @@ A Leaflet v2 plugin for editing only a local portion of a large polyline.
 
 ## Requirements
 
-- Leaflet v2 (tested with 2.0.0-alpha.1)
-- Modern browser with ES module support
+- Leaflet v2
+- A modern browser supporting ES modules and the web platform features required by Leaflet v2
 
-This library currently targets Leaflet v2 and is not intended to support older Leaflet versions.
+Leaflet v2 is currently in beta. This package is tested with Leaflet `2.0.0-beta.3`, which the demos also use, and declares `^2.0.0-beta.3` as its peer dependency range. Later Leaflet 2 releases are accepted by that range but have not been verified. Browser compatibility follows [Leaflet's requirements](https://github.com/Leaflet/Leaflet).
+
+This library targets Leaflet v2 and does not support older Leaflet versions.
 
 The source imports Leaflet with the bare module specifier `"leaflet"`, so the application needs an import map or a bundler that resolves it. The application and the library must use the same Leaflet module instance; for example, a `LatLng` passed to `startEditing()` must be an instance of that module's `LatLng` class.
 
@@ -51,10 +53,10 @@ The application using the library remains the source of truth for such data.
 
 ### From npm
 
-Install the library and Leaflet:
+The `latest` tag of Leaflet on npm still points to Leaflet 1.x, so install Leaflet v2 explicitly together with the plugin:
 
 ```sh
-npm install leaflet-partially-editable-polyline leaflet
+npm install leaflet-partially-editable-polyline leaflet@2.0.0-beta.3
 ```
 
 Then import the plugin and its stylesheet:
@@ -82,13 +84,13 @@ With no bundler and no npm install, the browser needs to resolve the bare specif
 <script type="importmap">
   {
     "imports": {
-      "leaflet": "https://unpkg.com/leaflet@2.0.0-alpha.1/dist/leaflet.js"
+      "leaflet": "https://unpkg.com/leaflet@2.0.0-beta.3/dist/leaflet.js"
     }
   }
 </script>
 ```
 
-This is how the demos under `examples/` load both Leaflet and the library.
+This is how the demos under `examples/` load both Leaflet and the library. This setup additionally requires browser support for import maps. Load the matching Leaflet CSS from `https://unpkg.com/leaflet@2.0.0-beta.3/dist/leaflet.css`.
 
 ## Usage
 
@@ -189,6 +191,31 @@ Example:
 const editor = new PartiallyEditablePolyline(latlngs, {
   editablePointRadius: 50,
 });
+```
+
+#### `handlePane`
+
+Leaflet pane name used by both existing-point markers and midpoint insertion
+markers, including handles recreated during editing. When omitted, handles use
+Leaflet's standard `markerPane`.
+
+This option is independent of the standard `pane` option, which controls the
+polyline itself. The consumer must create the target pane before starting
+editing and manage its stacking order; the plugin does not create or manage
+panes.
+
+Example:
+
+```js
+map.createPane("editable-lines");
+map.createPane("editable-handles");
+
+const editor = new PartiallyEditablePolyline(latlngs, {
+  pane: "editable-lines",
+  handlePane: "editable-handles",
+}).addTo(map);
+
+editor.startEditing(latlng);
 ```
 
 #### `pointIcon`
@@ -328,6 +355,31 @@ Fired when an active editing session ends.
 This happens when the session is ended by `endEditing()`, `disableEditing()` or `setLatLngs()`, when the layer is removed from the map, when `startEditing()` is called during an active session, or when the last remaining point is deleted.
 
 No additional payload is provided.
+
+### `pointclick`
+
+Fired when an existing editable point marker is clicked.
+
+Payload:
+
+```js
+{
+  index,
+  latlng
+}
+```
+
+`index` is the global index of the clicked point in the complete flat polyline.
+`latlng` is a snapshot of the clicked point.
+
+Midpoint/new-point markers do not produce this event. The event itself does not
+modify the editing state.
+
+```js
+editor.on("pointclick", ({ index, latlng }) => {
+  console.log(index, latlng);
+});
+```
 
 ### `pointchange`
 
@@ -500,7 +552,6 @@ The current implementation has several intentional limitations:
 - Directly modifying the array returned by `getLatLngs()`, or the `LatLng` objects in it, is not supported
 - No build step; the package distributes the source ESM directly
 - No compatibility layer for older Leaflet versions
-- Editing (moving, inserting, and deleting points) is mouse- and touch-only; there is no keyboard-only way to perform these operations
 
 The project is still under development, so the public API may evolve.
 
@@ -508,7 +559,7 @@ The project is still under development, so the public API may evolve.
 
 This project was inspired by and developed with reference to [Leaflet.js Editable Polylines plugin](https://github.com/tkrajina/leaflet-editable-polyline) by tkrajina.
 
-If you are using Leaflet v1, that plugin may be a suitable alternative. This project is specifically designed for Leaflet v2
+If you are using Leaflet v1, that plugin may be a suitable alternative. This project is specifically designed for Leaflet v2.
 
 ## License
 
